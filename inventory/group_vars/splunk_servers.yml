@@ -3,12 +3,12 @@
 # Encrypt splunk_admin_password with ansible-vault before production use.
 
 splunk_version: "10.0.4"
-splunk_build: "e8eb0c4654f8"
+splunk_build: "f798d4d49089"
 splunk_package_type: tgz  # tgz | rpm | deb
 
 # Override to use a local package or mirror instead of download.splunk.com.
 # splunk_package_url: "https://download.splunk.com/products/splunk/releases/10.0.0/linux/splunk-10.0.0-e8eb0c4654f8-linux-amd64.tgz"
-# splunk_package_path: "/tmp/splunk-10.0.0-e8eb0c4654f8-linux-amd64.tgz"
+splunk_package_path: "/tmp/splunk-10.4.0-f798d4d49089-linux-amd64.deb"
 
 splunk_install_dir: /opt/splunk
 splunk_user: splunk
