@@ -30,7 +30,7 @@ splunk_min_disk_gb: 50
 
 splunk_configure_firewall: false
 splunk_firewall_allowed_cidrs:
-  - 10.0.0.0/8
+  - 192.168.8.0/8
 
 # ITSI (Splunk IT Service Intelligence)
 itsi_install_enabled: true
