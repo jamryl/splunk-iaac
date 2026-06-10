@@ -1,0 +1,24 @@
+---
+- name: Configure JAVA_HOME in splunk-launch.conf
+  ansible.builtin.lineinfile:
+    path: "{{ splunk_launch_conf }}"
+    regexp: '^JAVA_HOME='
+    line: "JAVA_HOME={{ itsi_java_home_resolved }}"
+    create: true
+    owner: "{{ splunk_user }}"
+    group: "{{ splunk_group }}"
+    mode: "0644"
+  when: itsi_configure_java_home | bool
+  notify: Restart Splunk after ITSI changes
+
+- name: Ensure ITSI app directories remain owned by Splunk user
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: "{{ splunk_user }}"
+    group: "{{ splunk_group }}"
+    recurse: true
+  loop:
+    - "{{ splunk_apps_dir }}/itsi"
+    - "{{ splunk_apps_dir }}/SA-ITOA"
+    - "{{ splunk_apps_dir }}/SA-IndexCreation"
+  failed_when: false

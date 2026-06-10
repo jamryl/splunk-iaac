@@ -1,0 +1,85 @@
+---
+- name: Validate supported package type
+  ansible.builtin.assert:
+    that:
+      - splunk_package_type in ['tgz', 'rpm', 'deb']
+    fail_msg: "splunk_package_type must be one of: tgz, rpm, deb."
+
+- name: Validate supported operating system family
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in ['RedHat', 'Debian']
+    fail_msg: "This role supports RedHat and Debian family Linux hosts only."
+
+- name: Validate package type matches operating system
+  ansible.builtin.assert:
+    that:
+      - splunk_package_type != 'rpm' or ansible_os_family == 'RedHat'
+      - splunk_package_type != 'deb' or ansible_os_family == 'Debian'
+    fail_msg: "Package type {{ splunk_package_type }} is not compatible with {{ ansible_os_family }}."
+
+- name: Install OS packages on RedHat family hosts
+  ansible.builtin.package:
+    name: "{{ splunk_os_packages_redhat }}"
+    state: present
+  when: ansible_os_family == 'RedHat'
+
+- name: Install OS packages on Debian family hosts
+  ansible.builtin.package:
+    name: "{{ splunk_os_packages_debian }}"
+    state: present
+  when: ansible_os_family == 'Debian'
+
+- name: Check available RAM
+  ansible.builtin.assert:
+    that:
+      - ansible_memtotal_mb >= splunk_min_ram_mb
+    fail_msg: >-
+      Host has {{ ansible_memtotal_mb }} MB RAM; Splunk requires at least
+      {{ splunk_min_ram_mb }} MB for a single instance.
+
+- name: Check free disk space for Splunk install path
+  ansible.builtin.command:
+    cmd: "df -BG --output=avail {{ splunk_install_dir | dirname }}"
+  register: splunk_disk_check
+  changed_when: false
+
+- name: Parse available disk space in GB
+  ansible.builtin.set_fact:
+    splunk_available_disk_gb: "{{ splunk_disk_check.stdout_lines[-1].split()[0] | replace('G', '') | int }}"
+
+- name: Validate free disk space for Splunk install directory
+  ansible.builtin.assert:
+    that:
+      - splunk_available_disk_gb | int >= splunk_min_disk_gb
+    fail_msg: >-
+      Filesystem for {{ splunk_install_dir }} has {{ splunk_available_disk_gb }} GB free;
+      at least {{ splunk_min_disk_gb }} GB is required.
+
+- name: Check whether Splunk is already installed
+  ansible.builtin.stat:
+    path: "{{ splunk_bin }}"
+  register: splunk_bin_stat
+
+- name: Read installed Splunk version
+  ansible.builtin.command:
+    cmd: "{{ splunk_bin }} version"
+  register: splunk_installed_version
+  changed_when: false
+  failed_when: false
+  when: splunk_bin_stat.stat.exists
+
+- name: Record whether Splunk needs installation
+  ansible.builtin.set_fact:
+    splunk_needs_install: "{{ not splunk_bin_stat.stat.exists }}"
+    splunk_installed_version_string: "{{ splunk_installed_version.stdout | default('') }}"
+
+- name: Warn when installed Splunk version differs from target
+  ansible.builtin.debug:
+    msg: >-
+      Splunk is already installed ({{ splunk_installed_version_string }}).
+      This playbook installs {{ splunk_version }} only when Splunk is absent.
+      Use a dedicated upgrade playbook to change versions.
+  when:
+    - not splunk_needs_install | bool
+    - splunk_version not in splunk_installed_version_string

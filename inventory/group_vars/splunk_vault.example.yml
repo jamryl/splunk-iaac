@@ -1,0 +1,8 @@
+---
+# Copy to splunk_vault.yml and encrypt with:
+#   ansible-vault encrypt inventory/group_vars/splunk_vault.yml
+#
+# Then run the playbook with:
+#   ansible-playbook playbooks/splunk_enterprise_single_instance.yml --ask-vault-pass
+
+splunk_admin_password: "ChangeMe-Strong-Password-123!"

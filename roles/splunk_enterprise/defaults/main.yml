@@ -1,0 +1,61 @@
+---
+splunk_version: "10.0.0"
+splunk_build: "e8eb0c4654f8"
+splunk_package_type: tgz
+
+splunk_download_base_url: "https://download.splunk.com/products/splunk/releases/{{ splunk_version }}/linux"
+splunk_package_url: ""
+splunk_package_path: ""
+
+splunk_install_dir: /opt/splunk
+splunk_user: splunk
+splunk_group: splunk
+splunk_user_shell: /bin/bash
+splunk_user_home: "{{ splunk_install_dir }}"
+
+splunk_admin_username: admin
+splunk_admin_password: ""
+
+splunk_license_accept: true
+splunk_enable_systemd: true
+splunk_start_at_boot: true
+
+splunk_web_port: 8000
+splunk_mgmt_port: 8089
+splunk_server_name: "{{ inventory_hostname }}"
+
+splunk_min_ram_mb: 8192
+splunk_min_disk_gb: 50
+
+splunk_os_packages_redhat:
+  - tar
+  - gzip
+  - acl
+  - libxcrypt-compat
+
+splunk_os_packages_debian:
+  - tar
+  - gzip
+  - acl
+
+splunk_configure_firewall: false
+splunk_firewall_allowed_cidrs:
+  - 10.0.0.0/8
+
+splunk_ulimit_nofile: 65536
+splunk_ulimit_nproc: 16000
+
+splunk_package_names:
+  tgz: "splunk-{{ splunk_version }}-{{ splunk_build }}-linux-amd64.tgz"
+  rpm: "splunk-{{ splunk_version }}-{{ splunk_build }}.x86_64.rpm"
+  deb: "splunk-{{ splunk_version }}-{{ splunk_build }}-linux-amd64.deb"
+
+splunk_package_filename: "{{ splunk_package_names[splunk_package_type] }}"
+splunk_package_download_url: "{{ splunk_download_base_url }}/{{ splunk_package_filename }}"
+splunk_package_local_path: "/tmp/{{ splunk_package_filename }}"
+splunk_effective_package_url: "{{ splunk_package_url if splunk_package_url | length > 0 else splunk_package_download_url }}"
+splunk_effective_package_path: "{{ splunk_package_path if splunk_package_path | length > 0 else splunk_package_local_path }}"
+
+splunk_bin: "{{ splunk_install_dir }}/bin/splunk"
+splunk_passwd_file: "{{ splunk_install_dir }}/etc/passwd"
+splunk_local_dir: "{{ splunk_install_dir }}/etc/system/local"

@@ -1,0 +1,15 @@
+---
+- name: Create Splunk group
+  ansible.builtin.group:
+    name: "{{ splunk_group }}"
+    state: present
+
+- name: Create Splunk user
+  ansible.builtin.user:
+    name: "{{ splunk_user }}"
+    group: "{{ splunk_group }}"
+    home: "{{ splunk_user_home }}"
+    shell: "{{ splunk_user_shell }}"
+    system: true
+    create_home: false
+    comment: Splunk service account

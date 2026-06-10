@@ -1,0 +1,43 @@
+---
+# Splunk Enterprise 10 single-instance defaults.
+# Encrypt splunk_admin_password with ansible-vault before production use.
+
+splunk_version: "10.0.0"
+splunk_build: "e8eb0c4654f8"
+splunk_package_type: tgz  # tgz | rpm | deb
+
+# Override to use a local package or mirror instead of download.splunk.com.
+# splunk_package_url: "https://download.splunk.com/products/splunk/releases/10.0.0/linux/splunk-10.0.0-e8eb0c4654f8-linux-amd64.tgz"
+# splunk_package_path: "/tmp/splunk-10.0.0-e8eb0c4654f8-linux-amd64.tgz"
+
+splunk_install_dir: /opt/splunk
+splunk_user: splunk
+splunk_group: splunk
+
+splunk_admin_username: admin
+# splunk_admin_password: "ChangeMe-Strong-Password-123!"
+
+splunk_license_accept: true
+splunk_enable_systemd: true
+splunk_start_at_boot: true
+
+splunk_web_port: 8000
+splunk_mgmt_port: 8089
+splunk_server_name: "{{ inventory_hostname }}"
+
+splunk_min_ram_mb: 8192
+splunk_min_disk_gb: 50
+
+splunk_configure_firewall: false
+splunk_firewall_allowed_cidrs:
+  - 10.0.0.0/8
+
+# ITSI (Splunk IT Service Intelligence)
+itsi_install_enabled: true
+itsi_version: "4.21.0"
+# Download from Splunkbase and provide a local path or mirror URL:
+# itsi_package_path: "/tmp/splunk-it-service-intelligence-4.21.0.spl"
+# itsi_package_url: "https://internal-mirror.example.com/splunk-it-service-intelligence-4.21.0.spl"
+itsi_min_ram_mb: 12288
+itsi_min_cpu_cores: 16
+itsi_min_splunk_home_free_gb: 30

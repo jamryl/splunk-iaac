@@ -1,0 +1,107 @@
+---
+- name: Ensure Splunk local configuration directory exists
+  ansible.builtin.file:
+    path: "{{ splunk_local_dir }}"
+    state: directory
+    owner: "{{ splunk_user }}"
+    group: "{{ splunk_group }}"
+    mode: "0750"
+
+- name: Check whether Splunk admin credentials already exist
+  ansible.builtin.stat:
+    path: "{{ splunk_passwd_file }}"
+  register: splunk_passwd_stat
+
+- name: Generate Splunk admin password hash
+  ansible.builtin.command:
+    cmd: "{{ splunk_bin }} hash-passwd '{{ splunk_admin_password }}'"
+  register: splunk_admin_password_hash
+  changed_when: false
+  no_log: true
+  become: true
+  become_user: "{{ splunk_user }}"
+  when:
+    - not splunk_passwd_stat.stat.exists
+    - splunk_admin_password | length > 0
+
+- name: Install user-seed.conf for first-time admin credentials
+  ansible.builtin.template:
+    src: user-seed.conf.j2
+    dest: "{{ splunk_local_dir }}/user-seed.conf"
+    owner: "{{ splunk_user }}"
+    group: "{{ splunk_group }}"
+    mode: "0600"
+  no_log: true
+  when:
+    - not splunk_passwd_stat.stat.exists
+    - splunk_admin_password_hash is defined
+    - splunk_admin_password_hash.stdout is defined
+    - splunk_admin_password_hash.stdout | length > 0
+
+- name: Deploy server.conf for single instance
+  ansible.builtin.template:
+    src: server.conf.j2
+    dest: "{{ splunk_local_dir }}/server.conf"
+    owner: "{{ splunk_user }}"
+    group: "{{ splunk_group }}"
+    mode: "0640"
+  notify: Restart Splunk
+
+- name: Deploy Splunk user limits
+  ansible.builtin.template:
+    src: limits.conf.j2
+    dest: "/etc/security/limits.d/99-splunk.conf"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Configure firewalld for Splunk ports
+  when:
+    - splunk_configure_firewall | bool
+    - ansible_os_family == 'RedHat'
+  block:
+    - name: Check whether firewalld is active
+      ansible.builtin.command:
+        cmd: firewall-cmd --state
+      register: splunk_firewalld_state
+      changed_when: false
+      failed_when: false
+
+    - name: Allow Splunk web and management ports in firewalld
+      ansible.builtin.command:
+        cmd: "firewall-cmd --permanent --add-port={{ item }}/tcp"
+      loop:
+        - "{{ splunk_web_port }}"
+        - "{{ splunk_mgmt_port }}"
+      register: splunk_firewalld_ports
+      changed_when: "'ALREADY_ENABLED' not in splunk_firewalld_ports.stderr"
+      when: splunk_firewalld_state.rc == 0
+
+    - name: Reload firewalld to apply permanent rules
+      ansible.builtin.command:
+        cmd: firewall-cmd --reload
+      when:
+        - splunk_firewalld_state.rc == 0
+        - splunk_firewalld_ports is changed
+
+- name: Configure ufw for Splunk ports
+  when:
+    - splunk_configure_firewall | bool
+    - ansible_os_family == 'Debian'
+  block:
+    - name: Check whether ufw is available
+      ansible.builtin.command:
+        cmd: ufw status
+      register: splunk_ufw_status
+      changed_when: false
+      failed_when: false
+
+    - name: Allow Splunk web and management ports in ufw
+      ansible.builtin.command:
+        cmd: "ufw allow {{ item }}/tcp"
+      loop:
+        - "{{ splunk_web_port }}"
+        - "{{ splunk_mgmt_port }}"
+      register: splunk_ufw_result
+      changed_when: "'Skipping' not in (splunk_ufw_result.stdout | default(''))"
+      when: splunk_ufw_status.rc == 0

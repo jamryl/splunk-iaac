@@ -1,0 +1,35 @@
+---
+- name: Run ITSI preflight checks
+  ansible.builtin.import_tasks: preflight.yml
+  tags:
+    - itsi
+    - preflight
+  when: itsi_install_enabled | bool
+
+- name: Install Java for ITSI
+  ansible.builtin.import_tasks: java.yml
+  tags:
+    - itsi
+    - java
+  when: itsi_install_enabled | bool
+
+- name: Install ITSI package
+  ansible.builtin.import_tasks: install.yml
+  tags:
+    - itsi
+    - install
+  when: itsi_install_enabled | bool
+
+- name: Configure ITSI
+  ansible.builtin.import_tasks: configure.yml
+  tags:
+    - itsi
+    - configure
+  when: itsi_install_enabled | bool
+
+- name: Finalize ITSI service
+  ansible.builtin.import_tasks: service.yml
+  tags:
+    - itsi
+    - service
+  when: itsi_install_enabled | bool

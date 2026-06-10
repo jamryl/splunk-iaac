@@ -1,0 +1,65 @@
+---
+- name: Skip ITSI package installation when already present
+  ansible.builtin.debug:
+    msg: "ITSI marker app {{ itsi_marker_app }} found; skipping package extraction."
+  when: not itsi_needs_install | bool
+
+- name: Download ITSI package
+  ansible.builtin.get_url:
+    url: "{{ itsi_package_url }}"
+    dest: "{{ itsi_effective_package_path }}"
+    mode: "0644"
+    timeout: 300
+  when:
+    - itsi_needs_install | bool
+    - itsi_package_path | length == 0
+
+- name: Validate local ITSI package exists
+  ansible.builtin.stat:
+    path: "{{ itsi_effective_package_path }}"
+  register: itsi_package_stat
+  when: itsi_needs_install | bool
+
+- name: Assert ITSI package is available locally
+  ansible.builtin.assert:
+    that:
+      - itsi_package_stat.stat.exists
+      - itsi_package_stat.stat.isreg
+    fail_msg: "ITSI package not found at {{ itsi_effective_package_path }}."
+  when: itsi_needs_install | bool
+
+- name: Ensure Splunk apps directory exists
+  ansible.builtin.file:
+    path: "{{ splunk_apps_dir }}"
+    state: directory
+    owner: "{{ splunk_user }}"
+    group: "{{ splunk_group }}"
+    mode: "0755"
+  when: itsi_needs_install | bool
+
+- name: Extract ITSI package into Splunk apps directory
+  ansible.builtin.unarchive:
+    src: "{{ itsi_effective_package_path }}"
+    dest: "{{ splunk_apps_dir }}"
+    remote_src: true
+    owner: "{{ splunk_user }}"
+    group: "{{ splunk_group }}"
+    creates: "{{ itsi_marker_path }}"
+  when: itsi_needs_install | bool
+
+- name: Set ownership on ITSI app directories
+  ansible.builtin.file:
+    path: "{{ splunk_apps_dir }}"
+    owner: "{{ splunk_user }}"
+    group: "{{ splunk_group }}"
+    recurse: true
+  when: itsi_needs_install | bool
+
+- name: Remove downloaded ITSI package from temp
+  ansible.builtin.file:
+    path: "{{ itsi_effective_package_path }}"
+    state: absent
+  when:
+    - itsi_needs_install | bool
+    - itsi_package_path | length == 0
+    - itsi_effective_package_path.startswith('/tmp/')

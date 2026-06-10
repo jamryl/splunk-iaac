@@ -1,0 +1,81 @@
+---
+- name: Build Splunk start command
+  ansible.builtin.set_fact:
+    splunk_start_cmd: >-
+      {{ splunk_bin }} start
+      {% if splunk_license_accept | bool %} --accept-license{% endif %}
+      --answer-yes --no-prompt
+
+- name: Start Splunk for the first time
+  ansible.builtin.command:
+    cmd: "{{ splunk_start_cmd }}"
+  become: true
+  become_user: "{{ splunk_user }}"
+  register: splunk_first_start
+  changed_when: "'Splunk started' in splunk_first_start.stdout or splunk_first_start.rc == 0"
+  when: splunk_needs_install | bool
+
+- name: Ensure Splunk is running
+  ansible.builtin.command:
+    cmd: "{{ splunk_bin }} status"
+  become: true
+  become_user: "{{ splunk_user }}"
+  register: splunk_status
+  changed_when: false
+  failed_when: false
+
+- name: Start Splunk when it is not running
+  ansible.builtin.command:
+    cmd: "{{ splunk_start_cmd }}"
+  become: true
+  become_user: "{{ splunk_user }}"
+  when: splunk_status.rc != 0
+
+- name: Enable Splunk boot-start with systemd
+  ansible.builtin.command:
+    cmd: >-
+      {{ splunk_bin }} enable boot-start
+      -user {{ splunk_user }}
+      -systemd-managed 1
+      -systemd-override
+  become: true
+  register: splunk_boot_start
+  changed_when: "'Systemd unit file' in splunk_boot_start.stdout or splunk_boot_start.rc == 0"
+  notify: Reload systemd daemon
+  when:
+    - splunk_start_at_boot | bool
+    - splunk_enable_systemd | bool
+
+- name: Enable Splunk boot-start without systemd
+  ansible.builtin.command:
+    cmd: "{{ splunk_bin }} enable boot-start -user {{ splunk_user }}"
+  become: true
+  register: splunk_boot_start_init
+  changed_when: "'Init script' in splunk_boot_start_init.stdout or splunk_boot_start_init.rc == 0"
+  when:
+    - splunk_start_at_boot | bool
+    - not splunk_enable_systemd | bool
+
+- name: Ensure Splunkd systemd unit is enabled and running
+  ansible.builtin.systemd:
+    name: Splunkd
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: splunk_enable_systemd | bool
+
+- name: Display Splunk version after installation
+  ansible.builtin.command:
+    cmd: "{{ splunk_bin }} version"
+  become: true
+  become_user: "{{ splunk_user }}"
+  register: splunk_final_version
+  changed_when: false
+
+- name: Show Splunk access details
+  ansible.builtin.debug:
+    msg:
+      - "Splunk version: {{ splunk_final_version.stdout }}"
+      - "Web UI: https://{{ ansible_host | default(inventory_hostname) }}:{{ splunk_web_port }}"
+      - "Management port: {{ splunk_mgmt_port }}"
+      - "Install directory: {{ splunk_install_dir }}"

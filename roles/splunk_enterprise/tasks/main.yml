@@ -1,0 +1,30 @@
+---
+- name: Run Splunk Enterprise preflight checks
+  ansible.builtin.import_tasks: preflight.yml
+  tags:
+    - splunk
+    - preflight
+
+- name: Create Splunk service account
+  ansible.builtin.import_tasks: user.yml
+  tags:
+    - splunk
+    - user
+
+- name: Install Splunk Enterprise package
+  ansible.builtin.import_tasks: install.yml
+  tags:
+    - splunk
+    - install
+
+- name: Configure Splunk Enterprise
+  ansible.builtin.import_tasks: configure.yml
+  tags:
+    - splunk
+    - configure
+
+- name: Manage Splunk service
+  ansible.builtin.import_tasks: service.yml
+  tags:
+    - splunk
+    - service

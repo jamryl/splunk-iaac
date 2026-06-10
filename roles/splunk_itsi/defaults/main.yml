@@ -1,0 +1,43 @@
+---
+itsi_version: "4.21.0"
+itsi_package_filename: "splunk-it-service-intelligence-{{ itsi_version }}.spl"
+itsi_package_url: ""
+itsi_package_path: ""
+itsi_package_local_path: "/tmp/{{ itsi_package_filename }}"
+
+itsi_install_enabled: true
+itsi_marker_app: SA-ITOA
+
+itsi_min_ram_mb: 12288
+itsi_recommended_ram_mb: 16384
+itsi_min_cpu_cores: 16
+itsi_min_splunk_home_free_gb: 30
+
+itsi_java_packages_redhat:
+  - java-17-openjdk-headless
+
+itsi_java_packages_debian:
+  - openjdk-17-jre-headless
+
+itsi_java_home: ""
+itsi_configure_java_home: true
+
+itsi_compatible_splunk_versions:
+  "4.21.0":
+    - "9.2"
+    - "9.3"
+    - "9.4"
+    - "10.0"
+    - "10.2"
+    - "10.4"
+
+itsi_conflicting_apps:
+  - splunk_essentials
+  - SplunkEnterpriseSecuritySuite
+
+splunk_apps_dir: "{{ splunk_install_dir }}/etc/apps"
+splunk_bin: "{{ splunk_install_dir }}/bin/splunk"
+splunk_launch_conf: "{{ splunk_install_dir }}/etc/splunk-launch.conf"
+
+itsi_effective_package_path: "{{ itsi_package_path if itsi_package_path | length > 0 else itsi_package_local_path }}"
+itsi_marker_path: "{{ splunk_apps_dir }}/{{ itsi_marker_app }}"

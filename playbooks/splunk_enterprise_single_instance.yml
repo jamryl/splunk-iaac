@@ -1,0 +1,22 @@
+---
+- name: Install Splunk Enterprise 10 single instance
+  hosts: splunk_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Require Splunk admin password
+      ansible.builtin.assert:
+        that:
+          - splunk_admin_password is defined
+          - splunk_admin_password | length > 0
+        fail_msg: >-
+          Set splunk_admin_password in inventory/group_vars/splunk_vault.yml
+          (encrypted with ansible-vault) or pass it with --extra-vars.
+      tags:
+        - always
+
+  roles:
+    - role: splunk_enterprise
+      tags:
+        - splunk

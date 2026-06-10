@@ -1,0 +1,81 @@
+---
+- name: Skip package installation when Splunk is already present
+  ansible.builtin.debug:
+    msg: "Splunk binary found at {{ splunk_bin }}; skipping package installation."
+  when: not splunk_needs_install | bool
+
+- name: Download Splunk package
+  ansible.builtin.get_url:
+    url: "{{ splunk_effective_package_url }}"
+    dest: "{{ splunk_effective_package_path }}"
+    mode: "0644"
+    timeout: 300
+  when:
+    - splunk_needs_install | bool
+    - splunk_package_path | length == 0
+
+- name: Validate local Splunk package exists
+  ansible.builtin.stat:
+    path: "{{ splunk_effective_package_path }}"
+  register: splunk_package_stat
+  when: splunk_needs_install | bool
+
+- name: Assert Splunk package is available locally
+  ansible.builtin.assert:
+    that:
+      - splunk_package_stat.stat.exists
+      - splunk_package_stat.stat.isreg
+    fail_msg: "Splunk package not found at {{ splunk_effective_package_path }}."
+  when: splunk_needs_install | bool
+
+- name: Install Splunk from tarball
+  when:
+    - splunk_needs_install | bool
+    - splunk_package_type == 'tgz'
+  block:
+    - name: Ensure tarball install parent directory exists
+      ansible.builtin.file:
+        path: "{{ splunk_install_dir | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Extract Splunk tarball
+      ansible.builtin.unarchive:
+        src: "{{ splunk_effective_package_path }}"
+        dest: "{{ splunk_install_dir | dirname }}"
+        remote_src: true
+        creates: "{{ splunk_bin }}"
+
+- name: Install Splunk RPM package
+  ansible.builtin.package:
+    name: "{{ splunk_effective_package_path }}"
+    state: present
+    disable_gpg_check: true
+  when:
+    - splunk_needs_install | bool
+    - splunk_package_type == 'rpm'
+
+- name: Install Splunk DEB package
+  ansible.builtin.apt:
+    deb: "{{ splunk_effective_package_path }}"
+    state: present
+  when:
+    - splunk_needs_install | bool
+    - splunk_package_type == 'deb'
+
+- name: Set ownership on Splunk installation directory
+  ansible.builtin.file:
+    path: "{{ splunk_install_dir }}"
+    owner: "{{ splunk_user }}"
+    group: "{{ splunk_group }}"
+    recurse: true
+  when: splunk_needs_install | bool
+
+- name: Remove downloaded Splunk package
+  ansible.builtin.file:
+    path: "{{ splunk_effective_package_path }}"
+    state: absent
+  when:
+    - splunk_needs_install | bool
+    - splunk_package_path | length == 0
+    - splunk_effective_package_path.startswith('/tmp/')

@@ -1,0 +1,38 @@
+---
+- name: Install Splunk Enterprise 10 and ITSI single instance
+  hosts: splunk_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Require Splunk admin password
+      ansible.builtin.assert:
+        that:
+          - splunk_admin_password is defined
+          - splunk_admin_password | length > 0
+        fail_msg: >-
+          Set splunk_admin_password in inventory/group_vars/splunk_vault.yml
+          (encrypted with ansible-vault) or pass it with --extra-vars.
+      tags:
+        - always
+
+    - name: Require ITSI package when ITSI install is enabled
+      ansible.builtin.assert:
+        that:
+          - itsi_package_path | default('') | length > 0 or itsi_package_url | default('') | length > 0
+        fail_msg: >-
+          ITSI must be downloaded from Splunkbase. Set itsi_package_path to the local
+          .spl file or itsi_package_url to an internal mirror before running this playbook.
+      when: itsi_install_enabled | default(true) | bool
+      tags:
+        - always
+
+  roles:
+    - role: splunk_enterprise
+      tags:
+        - splunk
+
+    - role: splunk_itsi
+      tags:
+        - itsi
+      when: itsi_install_enabled | default(true) | bool

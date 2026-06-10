@@ -1,0 +1,115 @@
+---
+- name: Require ITSI package path or URL
+  ansible.builtin.assert:
+    that:
+      - itsi_package_path | length > 0 or itsi_package_url | length > 0
+    fail_msg: >-
+      ITSI must be downloaded from Splunkbase with a Splunk.com account.
+      Set itsi_package_path to a local .spl file or itsi_package_url to an internal mirror.
+
+- name: Verify Splunk Enterprise is installed
+  ansible.builtin.stat:
+    path: "{{ splunk_bin }}"
+  register: itsi_splunk_bin
+
+- name: Assert Splunk Enterprise is present
+  ansible.builtin.assert:
+    that:
+      - itsi_splunk_bin.stat.exists
+    fail_msg: "Splunk Enterprise must be installed before ITSI. Run the splunk_enterprise role first."
+
+- name: Verify Splunk admin account name is preserved
+  ansible.builtin.assert:
+    that:
+      - splunk_admin_username | default('admin') == 'admin'
+    fail_msg: >-
+      ITSI requires the default admin user account. Do not rename or remove admin
+      before installing ITSI.
+
+- name: Check installed Splunk version for ITSI compatibility
+  ansible.builtin.command:
+    cmd: "{{ splunk_bin }} version"
+  become: true
+  become_user: "{{ splunk_user }}"
+  register: itsi_splunk_version
+  changed_when: false
+
+- name: Check ITSI CPU requirements
+  ansible.builtin.assert:
+    that:
+      - ansible_processor_vcpus | default(ansible_processor_count | default(0)) >= itsi_min_cpu_cores
+    fail_msg: >-
+      ITSI recommends at least {{ itsi_min_cpu_cores }} logical CPU cores for a search head;
+      this host has {{ ansible_processor_vcpus | default(ansible_processor_count | default(0)) }}.
+
+- name: Match installed Splunk version against ITSI compatibility list
+  ansible.builtin.set_fact:
+    itsi_splunk_version_match: "{{ item }}"
+  loop: "{{ itsi_compatible_splunk_versions[itsi_version] | default([]) }}"
+  when: item in itsi_splunk_version.stdout
+
+- name: Validate Splunk and ITSI version compatibility
+  ansible.builtin.assert:
+    that:
+      - itsi_compatible_splunk_versions[itsi_version] is defined
+      - itsi_splunk_version_match is defined
+    fail_msg: >-
+      Splunk version '{{ itsi_splunk_version.stdout }}' is not compatible with
+      ITSI {{ itsi_version }}. Supported Splunk lines:
+      {{ itsi_compatible_splunk_versions[itsi_version] | join(', ') }}.
+
+- name: Check ITSI RAM requirements
+  ansible.builtin.assert:
+    that:
+      - ansible_memtotal_mb >= itsi_min_ram_mb
+    fail_msg: >-
+      ITSI requires at least {{ itsi_min_ram_mb }} MB RAM; host has {{ ansible_memtotal_mb }} MB.
+
+- name: Warn when ITSI RAM is below recommended level
+  ansible.builtin.debug:
+    msg: >-
+      Host RAM {{ ansible_memtotal_mb }} MB meets ITSI minimum but is below the
+      recommended {{ itsi_recommended_ram_mb }} MB for production search heads.
+  when: ansible_memtotal_mb < itsi_recommended_ram_mb
+
+- name: Check free space under SPLUNK_HOME for ITSI KV store
+  ansible.builtin.command:
+    cmd: "df -BG --output=avail {{ splunk_install_dir }}"
+  register: itsi_splunk_home_disk
+  changed_when: false
+
+- name: Parse free SPLUNK_HOME disk space
+  ansible.builtin.set_fact:
+    itsi_splunk_home_free_gb: "{{ itsi_splunk_home_disk.stdout_lines[-1].split()[0] | replace('G', '') | int }}"
+
+- name: Validate SPLUNK_HOME free space for ITSI
+  ansible.builtin.assert:
+    that:
+      - itsi_splunk_home_free_gb | int >= itsi_min_splunk_home_free_gb
+    fail_msg: >-
+      ITSI requires at least {{ itsi_min_splunk_home_free_gb }} GB free in
+      {{ splunk_install_dir }}; found {{ itsi_splunk_home_free_gb }} GB.
+
+- name: Detect conflicting apps that cannot coexist with ITSI
+  ansible.builtin.find:
+    paths: "{{ splunk_apps_dir }}"
+    file_type: directory
+    patterns: "{{ itsi_conflicting_apps }}"
+  register: itsi_conflicting_app_dirs
+
+- name: Fail when conflicting Splunk apps are installed
+  ansible.builtin.assert:
+    that:
+      - itsi_conflicting_app_dirs.matched == 0
+    fail_msg: >-
+      Conflicting app(s) detected under {{ splunk_apps_dir }}.
+      ITSI cannot share a search head with IT Essentials Work or Enterprise Security.
+
+- name: Check whether ITSI is already installed
+  ansible.builtin.stat:
+    path: "{{ itsi_marker_path }}"
+  register: itsi_marker_stat
+
+- name: Record ITSI installation state
+  ansible.builtin.set_fact:
+    itsi_needs_install: "{{ not itsi_marker_stat.stat.exists }}"

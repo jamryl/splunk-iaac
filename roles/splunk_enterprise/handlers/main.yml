@@ -1,0 +1,17 @@
+---
+- name: Restart Splunk
+  ansible.builtin.command:
+    cmd: "{{ splunk_bin }} restart"
+  become: true
+  become_user: "{{ splunk_user }}"
+  when: not splunk_enable_systemd | bool
+
+- name: Restart Splunk via systemd
+  ansible.builtin.systemd:
+    name: Splunkd
+    state: restarted
+  when: splunk_enable_systemd | bool
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true

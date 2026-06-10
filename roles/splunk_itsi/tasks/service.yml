@@ -1,0 +1,44 @@
+---
+- name: Restart Splunk to load ITSI apps
+  ansible.builtin.command:
+    cmd: "{{ splunk_bin }} restart"
+  become: true
+  become_user: "{{ splunk_user }}"
+  when:
+    - itsi_needs_install | bool
+    - not splunk_enable_systemd | default(true) | bool
+
+- name: Restart Splunkd via systemd to load ITSI apps
+  ansible.builtin.systemd:
+    name: Splunkd
+    state: restarted
+  when:
+    - itsi_needs_install | bool
+    - splunk_enable_systemd | default(true) | bool
+
+- name: Wait for Splunk management port after ITSI install
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host | default(inventory_hostname) }}"
+    port: "{{ splunk_mgmt_port | default(8089) }}"
+    delay: 10
+    timeout: 300
+  when: itsi_needs_install | bool
+
+- name: Verify ITSI marker app is present
+  ansible.builtin.stat:
+    path: "{{ itsi_marker_path }}"
+  register: itsi_post_install_marker
+
+- name: Assert ITSI installation succeeded
+  ansible.builtin.assert:
+    that:
+      - itsi_post_install_marker.stat.isdir
+    fail_msg: "ITSI app {{ itsi_marker_app }} was not found under {{ splunk_apps_dir }} after installation."
+
+- name: Show ITSI post-install guidance
+  ansible.builtin.debug:
+    msg:
+      - "ITSI {{ itsi_version }} extracted to {{ splunk_apps_dir }}"
+      - "Complete first-time setup in Splunk Web: IT Service Intelligence > Configuration"
+      - "Apply an ITSI license in Settings > Licensing if required"
+      - "Web UI: https://{{ ansible_host | default(inventory_hostname) }}:{{ splunk_web_port | default(8000) }}/app/itsi/itsi_home"

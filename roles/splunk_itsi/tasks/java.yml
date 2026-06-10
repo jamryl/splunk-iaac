@@ -1,0 +1,36 @@
+---
+- name: Install Java packages on RedHat family hosts
+  ansible.builtin.package:
+    name: "{{ itsi_java_packages_redhat }}"
+    state: present
+  when: ansible_os_family == 'RedHat'
+
+- name: Install Java packages on Debian family hosts
+  ansible.builtin.package:
+    name: "{{ itsi_java_packages_debian }}"
+    state: present
+  when: ansible_os_family == 'Debian'
+
+- name: Locate Java binary
+  ansible.builtin.command:
+    cmd: readlink -f /usr/bin/java
+  register: itsi_java_binary
+  changed_when: false
+  failed_when: itsi_java_binary.rc != 0
+
+- name: Resolve JAVA_HOME for ITSI
+  ansible.builtin.set_fact:
+    itsi_java_home_resolved: >-
+      {{ itsi_java_home if itsi_java_home | length > 0
+         else (itsi_java_binary.stdout | dirname | dirname) }}
+
+- name: Verify JAVA_HOME exists
+  ansible.builtin.stat:
+    path: "{{ itsi_java_home_resolved }}"
+  register: itsi_java_home_stat
+
+- name: Assert JAVA_HOME is valid
+  ansible.builtin.assert:
+    that:
+      - itsi_java_home_stat.stat.isdir
+    fail_msg: "JAVA_HOME '{{ itsi_java_home_resolved }}' was not found after Java installation."

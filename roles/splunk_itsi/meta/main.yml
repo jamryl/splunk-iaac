@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: splunk_itsi
+  author: IaaS
+  description: Install Splunk IT Service Intelligence on a single Splunk Enterprise instance
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+    - name: Debian
+      versions:
+        - bookworm
+
+dependencies: []
