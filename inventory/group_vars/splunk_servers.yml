@@ -2,7 +2,7 @@
 # Splunk Enterprise 10 single-instance defaults.
 # Encrypt splunk_admin_password with ansible-vault before production use.
 
-splunk_version: "10.0.0"
+splunk_version: "10.0.4"
 splunk_build: "e8eb0c4654f8"
 splunk_package_type: tgz  # tgz | rpm | deb
 
